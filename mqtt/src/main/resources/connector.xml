@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<connector>
+    <component name="mqtt" package="org.wso2.carbon.connectors" >
+        <dependency component="mqtt_connect" />
+	<dependency component="mqtt_publish" />
+        <description>MQTT connector operation types</description>
+    </component>
+    <icon>icon/icon.png</icon>
+</connector>
+

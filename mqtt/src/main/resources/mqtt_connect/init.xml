@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<template name="init" xmlns="http://ws.apache.org/ns/synapse">
+    <parameter name="hostName"/>
+    <parameter name="port"/>
+    <parameter name="asyncClientEnable"/>
+    <parameter name="username"/>
+    <parameter name="password"/>
+    <parameter name="cleanSession"/>
+    <parameter name="connectionTimeout"/>
+    <parameter name="keepAliveInterval"/>
+    <parameter name="lwMessage"/>
+    <parameter name="lwQos"/>
+    <parameter name="lwRetained"/>
+    <parameter name="lwTopicName"/>
+    <parameter name="persistenceLocation"/>
+    <parameter name="sslEnable"/>
+    <sequence>
+        <class name="org.wso2.carbon.connector.mqtt.MqttConfig"/>
+    </sequence>
+</template>

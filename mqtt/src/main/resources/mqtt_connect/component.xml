@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component name="mqtt_connect" type="synapse/template" >
+    <subComponents> 
+		<component name="init" >
+	    		<file>init.xml</file>
+	    		<description>Create and connect the client</description>
+		</component>			
+    </subComponents>    
+</component>
