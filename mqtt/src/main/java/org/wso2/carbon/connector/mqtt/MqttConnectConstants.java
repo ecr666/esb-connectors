@@ -42,6 +42,5 @@ public class MqttConnectConstants {
 	public static final String MQTT_DIS = "disconnectAfter";
 
 	public static final String INIT_MODE = "initMode";
-	// public static boolean isInitializingMode=true;
 
 }
