@@ -63,7 +63,6 @@ public class MqttPublish extends AbstractConnector {
 		}
 
 		try {
-			// if the clients have not yet being initialized
 			if (messageContext
 					.getProperty(MqttConnectConstants.MQTT_NON_BLOCKING) != null
 					&& messageContext
