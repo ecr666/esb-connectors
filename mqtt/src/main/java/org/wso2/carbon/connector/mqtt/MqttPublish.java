@@ -20,73 +20,99 @@ package org.wso2.carbon.connector.mqtt;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.synapse.MessageContext;
-import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken;
-import org.eclipse.paho.client.mqttv3.MqttAsyncClient;
-import org.eclipse.paho.client.mqttv3.MqttException;
-import org.eclipse.paho.client.mqttv3.MqttMessage;
-import org.eclipse.paho.client.mqttv3.MqttPersistenceException;
+import org.eclipse.paho.client.mqttv3.*;
 import org.wso2.carbon.connector.core.AbstractConnector;
 import org.wso2.carbon.connector.core.ConnectException;
-import org.eclipse.paho.client.mqttv3.MqttClient;
 
 /**
  * Publish Mqtt messages to the broker url which is given at the init
  */
 public class MqttPublish extends AbstractConnector {
 
-	private boolean isAsync;
-
 	private static Log log = LogFactory.getLog(MqttPublish.class);
+
+	private enum qosLevel {
+		ZERO("0"), ONE("1"), TWO("2");
+		String qos;
+
+		qosLevel(String s) {
+			qos = s;
+		}
+	}
 
 	@Override
 	public void connect(MessageContext messageContext) throws ConnectException {
-		String topic = MqttUtils.lookupTemplateParamater(messageContext,
-				"topic");
-		String msg = MqttUtils.lookupTemplateParamater(messageContext, "msg");
 		MqttClient Client = null;
 		MqttAsyncClient asyncClient = null;
-		MqttClientLoader clientLoader = new MqttClientLoader(messageContext);
+		MqttClientFactory clientFactory = new MqttClientFactory(messageContext);
+		boolean isAsync;
+
+		//input parameters
+		String topic = MqttUtils.lookupTemplateParamater(messageContext, "topic");
+		String msg = MqttUtils.lookupTemplateParamater(messageContext, "msg");
+		String qosInput =
+				(MqttUtils.lookupTemplateParamater(messageContext, MqttConnectConstants.MQTT_QOS) !=
+				 null &&
+				 !MqttUtils.lookupTemplateParamater(messageContext, MqttConnectConstants.MQTT_QOS)
+				           .isEmpty()) ?
+				MqttUtils.lookupTemplateParamater(messageContext, MqttConnectConstants.MQTT_QOS) :
+				null;
+		String async = (MqttUtils.lookupTemplateParamater(messageContext,
+		                                                  MqttConnectConstants.MQTT_NON_BLOCKING) !=
+		                null && !MqttUtils
+				.lookupTemplateParamater(messageContext, MqttConnectConstants.MQTT_NON_BLOCKING)
+				.isEmpty()) ? MqttUtils.lookupTemplateParamater(messageContext,
+		                                                        MqttConnectConstants.MQTT_NON_BLOCKING) :
+		               null;
+		String disAfter =
+				(MqttUtils.lookupTemplateParamater(messageContext, MqttConnectConstants.MQTT_DIS) !=
+				 null &&
+				 !MqttUtils.lookupTemplateParamater(messageContext, MqttConnectConstants.MQTT_DIS)
+				           .isEmpty()) ?
+				MqttUtils.lookupTemplateParamater(messageContext, MqttConnectConstants.MQTT_DIS) :
+				null;
+		String retained = (MqttUtils.lookupTemplateParamater(messageContext,
+		                                                     MqttConnectConstants.MQTT_RETAINED) !=
+		                   null && !MqttUtils
+				.lookupTemplateParamater(messageContext, MqttConnectConstants.MQTT_RETAINED)
+				.isEmpty()) ? MqttUtils.lookupTemplateParamater(messageContext,
+		                                                        MqttConnectConstants.MQTT_RETAINED) :
+		                  null;
+
 		String ID = (String) messageContext.getProperty("ClientID");
 
-		// setting QoS
+		// setting QoS - default is 1
 		int qos = 1;
-		if (MqttUtils.lookupTemplateParamater(messageContext,
-				MqttConnectConstants.MQTT_QOS) != null
-				&& !MqttUtils.lookupTemplateParamater(messageContext,
-						MqttConnectConstants.MQTT_QOS).isEmpty()) {
-			if (MqttUtils.lookupTemplateParamater(messageContext,
-					MqttConnectConstants.MQTT_QOS) == "0")
-				qos = 0;
-			else if (MqttUtils.lookupTemplateParamater(messageContext,
-					MqttConnectConstants.MQTT_QOS) == "2")
-				qos = 2;
-		}
-
+		if (qosLevel.ZERO.qos.equals(qosInput))
+			qos = 0;
+		else if (qosLevel.TWO.qos.equals(qosInput))
+			qos = 2;
+		//setting retained settings
+		boolean isRetained = false;
+		if ("true".equalsIgnoreCase(retained))
+			isRetained = true;
+		//requesting for a client and publish the message
 		try {
-			if (messageContext
-					.getProperty(MqttConnectConstants.MQTT_NON_BLOCKING) != null
-					&& messageContext
-							.getProperty(MqttConnectConstants.MQTT_NON_BLOCKING)
-							.toString().equalsIgnoreCase("true")) {
-				asyncClient = clientLoader.loadAsyncClient();
+			if ("true".equalsIgnoreCase(async)) {
+				asyncClient = clientFactory.loadAsyncClient();
 				isAsync = true;
 				IMqttDeliveryToken pubToken = asyncClient.publish(topic,
-						msg.getBytes(), qos, false);
+				                                                  msg.getBytes(), qos, isRetained);
 				pubToken.waitForCompletion();
+				log.info("Publish is completed to the topic: " + topic + " in QoS: " + qos +
+				         " by Async MQTT Client: " + asyncClient.getClientId());
 			} else {
-				Client = clientLoader.loadClient();
-				Client.publish(topic, new MqttMessage(msg.getBytes()));
+				Client = clientFactory.loadClient();
+				Client.publish(topic, msg.getBytes(), qos, isRetained);
+				log.info("Publish is completed to the topic: " + topic + " in QoS: " + qos +
+				         " by Blocking MQTT Client: " + Client.getClientId());
 				isAsync = false;
 			}
 
 			messageContext.setProperty(MqttConnectConstants.INIT_MODE, "false");
 
 			// disconnect the client if specified in the input parameters
-			if (MqttUtils.lookupTemplateParamater(messageContext,
-					MqttConnectConstants.MQTT_DIS) != null
-					&& MqttUtils.lookupTemplateParamater(messageContext,
-							MqttConnectConstants.MQTT_DIS).equalsIgnoreCase(
-							"true")) {
+			if ("true".equalsIgnoreCase(disAfter)) {
 				if (isAsync) {
 					asyncClient.disconnect();
 					asyncClient.close();
@@ -94,15 +120,17 @@ public class MqttPublish extends AbstractConnector {
 					Client.disconnect();
 					Client.close();
 				}
-				clientLoader.destroyClient(ID, isAsync);
+				clientFactory.destroyClient(ID, isAsync);
 			}
 
 		} catch (MqttPersistenceException e) {
-			log.error("Coudn't perform the operation: " + e.getMessage(), e);
+			log.error("Couldn't perform the operation: " + e.getMessage(), e);
 		} catch (MqttException e) {
-			log.error("Coudn't perform the operation: " + e.getMessage(), e);
+			log.error("Couldn't perform the operation: " + e.getMessage(), e);
 		} catch (NumberFormatException e) {
-			log.error("Coudn't perform the operation: " + e.getMessage(), e);
+			log.error("Couldn't perform the operation: " + e.getMessage(), e);
+		} catch (NullPointerException e) {
+			log.error("Client is not initialized: " + e.getMessage(), e);
 		}
 
 	}
